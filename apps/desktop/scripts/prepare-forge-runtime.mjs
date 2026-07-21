@@ -53,10 +53,11 @@ async function findInstalledPackage(packageName, startDirectory) {
   }
 }
 
-async function copyPackage(sourceDirectory, destinationDirectory, copiedPackages) {
+async function copyPackage(sourceDirectory, destinationDirectory, copiedPackages, destinationSources) {
   const copyKey = `${sourceDirectory}\0${destinationDirectory}`;
   if (copiedPackages.has(copyKey)) return;
   copiedPackages.add(copyKey);
+  destinationSources.set(destinationDirectory, sourceDirectory);
 
   await cp(sourceDirectory, destinationDirectory, { recursive: true, filter: shouldCopy });
 
@@ -71,10 +72,14 @@ async function copyPackage(sourceDirectory, destinationDirectory, copiedPackages
     if (!dependencySource) continue;
 
     const nestedDependency = dependencySource.startsWith(`${sourceDirectory}${sep}`);
-    const dependencyDestination = nestedDependency
+    let dependencyDestination = nestedDependency
       ? join(destinationDirectory, relative(sourceDirectory, dependencySource))
       : join(runtimeNodeModules, dependencyName);
-    await copyPackage(dependencySource, dependencyDestination, copiedPackages);
+    const existingSource = destinationSources.get(dependencyDestination);
+    if (existingSource && existingSource !== dependencySource) {
+      dependencyDestination = join(destinationDirectory, 'node_modules', dependencyName);
+    }
+    await copyPackage(dependencySource, dependencyDestination, copiedPackages, destinationSources);
   }
 }
 
@@ -98,6 +103,7 @@ async function prepareElectronArchive(platform, arch) {
 export async function prepareForgeRuntime(platform = process.platform, arch = process.arch) {
   const apiPackage = JSON.parse(await readFile(join(apiDirectory, 'package.json'), 'utf8'));
   const copiedPackages = new Set();
+  const destinationSources = new Map();
 
   await rm(runtimeDirectory, { recursive: true, force: true });
   await mkdir(runtimeApiDirectory, { recursive: true });
@@ -115,6 +121,7 @@ export async function prepareForgeRuntime(platform = process.platform, arch = pr
       dependencySource,
       join(runtimeNodeModules, dependencyName),
       copiedPackages,
+      destinationSources,
     );
   }
 

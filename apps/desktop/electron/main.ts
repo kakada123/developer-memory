@@ -8,7 +8,6 @@ import { detectProject } from './project-detection';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const applicationName = 'Developer Memory';
-const temporaryDeveloperMode = true;
 const apiPort = app.isPackaged ? 47823 : 47821;
 const apiHealthUrl = `http://127.0.0.1:${apiPort}/health`;
 const selectedDirectories = new Set<string>();
@@ -38,7 +37,7 @@ async function resolveRegisteredProjectRoot(projectId: unknown): Promise<string 
     return null;
   }
 
-  const response = await fetch(`http://127.0.0.1:47821/projects/${encodeURIComponent(projectId)}`);
+  const response = await fetch(`http://127.0.0.1:${apiPort}/projects/${encodeURIComponent(projectId)}`);
   if (!response.ok) return null;
 
   const project = await response.json() as RegisteredProjectResponse;
@@ -96,13 +95,9 @@ function startPackagedApi(): void {
       ...process.env,
       DEVELOPER_MEMORY_PACKAGED: 'true',
       DEVELOPER_MEMORY_API_PORT: String(apiPort),
-      DEVELOPER_MEMORY_DEBUG: String(temporaryDeveloperMode),
     },
-    stdio: 'pipe',
     serviceName: 'Developer Memory API',
   });
-  apiProcess.stdout?.on('data', (chunk: Buffer) => console.log(`[API] ${chunk.toString().trimEnd()}`));
-  apiProcess.stderr?.on('data', (chunk: Buffer) => console.error(`[API] ${chunk.toString().trimEnd()}`));
   apiProcess.once('exit', () => {
     apiProcess = null;
   });
@@ -150,22 +145,19 @@ function createWindow(): void {
     webPreferences: {
       preload: join(currentDirectory, 'preload.mjs'),
       contextIsolation: true,
-      devTools: temporaryDeveloperMode || !app.isPackaged,
+      devTools: !app.isPackaged,
       nodeIntegration: false,
       sandbox: true,
     },
   });
 
   window.webContents.on('before-input-event', (event, input) => {
-    if (isReloadShortcut(input) || (!temporaryDeveloperMode && app.isPackaged && isDeveloperToolsShortcut(input))) {
+    if (isReloadShortcut(input) || (app.isPackaged && isDeveloperToolsShortcut(input))) {
       event.preventDefault();
     }
   });
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  if (temporaryDeveloperMode) {
-    window.webContents.once('did-finish-load', () => window.webContents.openDevTools({ mode: 'detach' }));
-  }
 
   if (process.env.VITE_DEV_SERVER_URL) {
     void window.loadURL(process.env.VITE_DEV_SERVER_URL);

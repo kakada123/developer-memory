@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, TableColumn } from 'typeorm';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -67,9 +67,6 @@ export class ProjectsService implements OnModuleInit {
     } catch (error: unknown) {
       if (error instanceof Error && error.message.includes('UNIQUE constraint failed')) {
         throw new ConflictException('A project with this path already exists');
-      }
-      if (process.env.DEVELOPER_MEMORY_DEBUG === 'true' && error instanceof Error) {
-        throw new InternalServerErrorException(error.message);
       }
       throw error;
     }
