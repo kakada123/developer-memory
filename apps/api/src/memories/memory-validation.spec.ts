@@ -1,0 +1,2 @@
+import assert from'node:assert/strict';import{describe,it}from'node:test';import{normalizeTags,validateLineRange}from'./memories.service';
+describe('memory validation',()=>{it('normalizes and deduplicates tags case-insensitively',()=>assert.deepEqual(normalizeTags([' API ','api','Bug']),['API','Bug']));it('validates line ranges',()=>{assert.doesNotThrow(()=>validateLineRange(2,4));assert.throws(()=>validateLineRange(undefined,4));assert.throws(()=>validateLineRange(4,2))})});

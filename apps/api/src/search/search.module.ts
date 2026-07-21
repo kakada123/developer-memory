@@ -1,0 +1,2 @@
+import{Module}from'@nestjs/common';import{TypeOrmModule}from'@nestjs/typeorm';import{MemoryEntry}from'../memories/memory-entry.entity';import{DevelopmentSession}from'../sessions/development-session.entity';import{GitCommit}from'../git/git-commit.entity';import{SearchController}from'./search.controller';import{SearchService}from'./search.service';
+@Module({imports:[TypeOrmModule.forFeature([MemoryEntry,DevelopmentSession,GitCommit])],controllers:[SearchController],providers:[SearchService]})export class SearchModule{}

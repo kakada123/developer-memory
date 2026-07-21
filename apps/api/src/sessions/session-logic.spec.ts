@@ -1,0 +1,1 @@
+import assert from'node:assert/strict';import{describe,it}from'node:test';import{calculateDurationMinutes}from'./sessions.service';describe('session duration',()=>{it('calculates rounded non-negative minutes',()=>{assert.equal(calculateDurationMinutes(new Date(0),new Date(125000)),2);assert.equal(calculateDurationMinutes(new Date(10),new Date(0)),0)})});

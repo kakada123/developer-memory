@@ -1,0 +1,1 @@
+import{Controller,Get,Param,ParseUUIDPipe}from'@nestjs/common';import{OverviewService}from'./overview.service';@Controller('projects/:projectId/overview')export class OverviewController{constructor(private service:OverviewService){}@Get()get(@Param('projectId',new ParseUUIDPipe())id:string){return this.service.get(id)}}

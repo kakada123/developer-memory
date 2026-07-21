@@ -1,0 +1,2 @@
+import{Injectable}from'@nestjs/common';import{InjectRepository}from'@nestjs/typeorm';import{Repository}from'typeorm';import{MemoryEntry}from'./memory-entry.entity';
+@Injectable()export class MemoryRepositoryService{constructor(@InjectRepository(MemoryEntry)readonly repository:Repository<MemoryEntry>){}one(projectId:string,id:string){return this.repository.findOne({where:{id,projectId},relations:{session:true}})}list(projectId:string){return this.repository.find({where:{projectId},relations:{session:true},order:{createdAt:'DESC'},take:100})}}
