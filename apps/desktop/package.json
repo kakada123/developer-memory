@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "wait-on http-get://127.0.0.1:47821/health && vite",
     "build": "vue-tsc -b && vite build",
+    "package:mac": "node scripts/package-macos.mjs",
+    "generate:icons": "node scripts/render-icon.mjs",
     "typecheck": "vue-tsc -b --noEmit"
   },
   "dependencies": {

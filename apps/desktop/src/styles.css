@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #172033;
   background: #f6f7fb;
@@ -28,15 +29,10 @@ button:disabled { cursor: not-allowed; opacity: .58; }
   background: rgba(255, 255, 255, .92);
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
   width: 44px;
   height: 44px;
   border-radius: 13px;
-  color: white;
-  background: linear-gradient(145deg, #625cf6, #3b36c8);
-  font-size: 13px;
-  font-weight: 800;
+  object-fit: contain;
   box-shadow: 0 7px 20px rgba(79, 73, 218, .24);
 }
 .app-header h1 { margin: 0 0 4px; font-size: 19px; letter-spacing: -.02em; }
@@ -263,6 +259,135 @@ main { width: min(1080px, calc(100% - 64px)); margin: 0 auto; padding: 48px 0 72
 .memory-card-footer { align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 15px; }
 .memory-meta { display: flex; min-width: 0; flex-direction: column; gap: 4px; color: #999eaa; font-size: 9px; }
 .memory-meta code { overflow: hidden; max-width: 260px; color: #777e8e; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    color: #eef0f6;
+    background: #11131a;
+  }
+
+  body, .app-shell { background: #11131a; }
+  input, textarea, select { color-scheme: dark; }
+  input::placeholder, textarea::placeholder { color: #6f7789; }
+
+  .app-header {
+    border-bottom-color: #292d39;
+    background: rgba(20, 22, 30, .94);
+    backdrop-filter: blur(16px);
+  }
+  .app-header p, .project-count, .hero-path, .created { color: #969eaf; }
+  .eyebrow, .back-link, .detail-tabs button.active, .record-type, .commit-card code,
+  .commit-drawer-header code, .change-badge, .open-in-editor, .memory-tags span { color: #918cff; }
+
+  .button.secondary {
+    border-color: #353a49;
+    color: #dce0ea;
+    background: #1b1e28;
+  }
+  .button.secondary:hover:not(:disabled) { background: #242834; }
+  .button.danger {
+    border-color: #62343d;
+    color: #ff9caa;
+    background: #2a1a20;
+  }
+
+  .status-panel, .empty-state, .project-card, .modal, .metadata-grid div,
+  .result-summary, .file-empty, .file-layout, .file-list > button,
+  .record-detail, .commit-drawer-header, .commit-body, .commit-facts,
+  .drawer-file-list, .drawer-file-row, .memory-card, .memory-composer,
+  .memory-empty, .memory-entry-card {
+    color: #eef0f6;
+    border-color: #2d3240;
+    background: #191c25;
+  }
+
+  .status-panel, .empty-state, .file-empty, .memory-empty { border-color: #383d4b; }
+  .project-card:hover { border-color: #514c88; box-shadow: 0 8px 24px rgba(0, 0, 0, .22); }
+  .project-icon, .empty-icon { color: #a29eff; background: #292743; }
+  .project-title p, .empty-state p, .details-grid dt, .metadata-grid span,
+  .result-summary span, .file-stats, .no-results, .preview-unavailable,
+  .branch-loading, .commit-card small, .memory-card small,
+  .changed-files-heading p, .memory-composer-footer small,
+  .memory-empty p, .memory-meta { color: #939bac; }
+  .tags span { color: #b8becc; background: #252936; }
+  .tags span.active { color: #72d9b4; background: #17372e; }
+  .delete-button { color: #dc8794; }
+  .delete-button:hover:not(:disabled) { color: #ffa1ae; background: #321d23; }
+
+  .icon-button { color: #aeb5c4; background: #292d39; }
+  .field { color: #c5cad5; }
+  .field input, .wide-input, .inline-form input, .memory-form input,
+  .memory-form textarea, .memory-form select, .file-filters input,
+  .file-filters select, .branch-select, .memory-field input,
+  .memory-field select, .memory-field textarea, .memory-toolbar input,
+  .memory-toolbar select {
+    border-color: #353a49;
+    color: #e8eaf0;
+    background: #14171f;
+  }
+  .field input:focus, .file-filters input:focus, .file-filters select:focus,
+  .memory-field input:focus, .memory-field select:focus,
+  .memory-field textarea:focus, .memory-toolbar input:focus,
+  .memory-toolbar select:focus {
+    border-color: #7771ea;
+    background: #171a23;
+    box-shadow: 0 0 0 3px #282641;
+  }
+  .detail-path { color: #aeb5c4; background: #232630; }
+  .details-grid div { border-color: #303542; }
+
+  .detail-tabs { border-bottom-color: #2b303c; }
+  .detail-tabs button { color: #969dae; }
+  .detail-tabs button:hover { color: #c9ced8; }
+  .metadata-grid { border-color: #2d3240; background: #2d3240; }
+  .status-indexed, .additions, .file-change-count b { color: #61d2a7; }
+  .status-indexing { color: #9b96ff; }
+  .status-failed, .deletions, .file-change-count em { color: #ff8f9e; }
+  .progress-panel { border-color: #3b3861; background: #1c1b2b; }
+  .progress-track { background: #34324d; }
+  .progress-panel p, .progress-panel small { color: #a2a9b8; }
+  .result-summary div { border-right-color: #2d3240; }
+
+  .file-layout, .file-list { border-color: #2d3240; }
+  .file-list > button { color: #dfe2ea; border-bottom-color: #292e3a; }
+  .file-list > button:hover, .file-list > button.selected { background: #25243a; }
+  .file-preview { background: #101219; color: #e8eaf0; }
+  .preview-title { border-bottom-color: #343947; background: #1b1f29; }
+
+  .git-unavailable, .warning-alert {
+    border-color: #65542e;
+    color: #e7c875;
+    background: #292416;
+  }
+  .git-unavailable p { color: #c5ad70; }
+  .error-alert { border-color: #693843; color: #ff9ca9; background: #2c1a20; }
+  .success-alert { border-color: #285e4d; color: #77d8b5; background: #162a24; }
+  .memory-list, .commit-card { border-color: #2d3240; }
+  .commit-card { color: #e8eaf0; background: #191c25; }
+  .commit-card:hover { background: #242337; }
+
+  .commit-drawer-backdrop { background: rgba(4, 6, 10, .68); }
+  .commit-drawer { color: #eef0f6; background: #12151c; box-shadow: -18px 0 60px rgba(0, 0, 0, .5); }
+  .commit-drawer-header, .commit-facts div, .drawer-file-row,
+  .changed-file { border-color: #2d3240; }
+  .commit-body { color: #b9bfcc; }
+  .commit-facts dt { color: #8f97a8; }
+  .drawer-file-row { color: #e5e8ef; }
+  .drawer-file-row:hover:not(:disabled) { background: #25243a; }
+  .drawer-file-path code { color: #dfe2ea; }
+  .drawer-file-path small { color: #8f97a8; }
+
+  .record-actions button { color: #a8a4ff; background: #292743; }
+  .record-actions button:hover:not(:disabled) { background: #353258; }
+  .memory-count, .memory-status { color: #aeb5c4; background: #292d39; }
+  .memory-field { color: #abb2c0; }
+  .memory-preview { color: #b3bac8; }
+  .memory-status.is-open { color: #e6c46f; background: #3b321c; }
+  .memory-status.is-resolved { color: #74d8b3; background: #19372e; }
+  .memory-status.is-archived { color: #a2a9b8; background: #292d37; }
+  .memory-priority { color: #ff98a7; }
+}
 
 @media (max-width: 720px) {
   .app-header { padding: 0 24px; }

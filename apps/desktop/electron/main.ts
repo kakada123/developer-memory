@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, utilityProcess } from 'electron';
+import type { Input, MenuItemConstructorOptions, UtilityProcess } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -6,7 +7,12 @@ import { realpath, stat } from 'node:fs/promises';
 import { detectProject } from './project-detection';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
+const applicationName = 'Developer Memory';
 const selectedDirectories = new Set<string>();
+const windowBackground = (): string => nativeTheme.shouldUseDarkColors ? '#11131a' : '#f6f7fb';
+let apiProcess: UtilityProcess | null = null;
+
+app.setName(applicationName);
 
 interface RegisteredProjectResponse {
   path?: unknown;
@@ -76,6 +82,37 @@ async function openProjectFile(projectId: unknown, relativePath: unknown, line: 
   }
 }
 
+function startPackagedApi(): void {
+  if (!app.isPackaged || apiProcess) return;
+
+  const applicationPath = app.getAppPath();
+  apiProcess = utilityProcess.fork(join(applicationPath, 'api', 'dist', 'main.js'), [], {
+    cwd: join(applicationPath, 'api'),
+    env: {
+      ...process.env,
+      DEVELOPER_MEMORY_PACKAGED: 'true',
+    },
+    serviceName: 'Developer Memory API',
+  });
+}
+
+async function waitForApi(timeoutMs = 15_000): Promise<void> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const response = await fetch('http://127.0.0.1:47821/health');
+      if (response.ok) return;
+    } catch {
+      // The local API may need a moment to initialize its database.
+    }
+
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, 150));
+  }
+
+  throw new Error('The local Developer Memory service did not start in time.');
+}
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1180,
@@ -83,14 +120,24 @@ function createWindow(): void {
     minWidth: 780,
     minHeight: 560,
     title: 'Developer Memory',
-    backgroundColor: '#f6f7fb',
+    autoHideMenuBar: true,
+    backgroundColor: windowBackground(),
     webPreferences: {
       preload: join(currentDirectory, 'preload.mjs'),
       contextIsolation: true,
+      devTools: !app.isPackaged,
       nodeIntegration: false,
       sandbox: true,
     },
   });
+
+  window.webContents.on('before-input-event', (event, input) => {
+    if (isReloadShortcut(input) || (app.isPackaged && isDeveloperToolsShortcut(input))) {
+      event.preventDefault();
+    }
+  });
+
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   if (process.env.VITE_DEV_SERVER_URL) {
     void window.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -99,7 +146,69 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+function isReloadShortcut(input: Input): boolean {
+  if (input.type !== 'keyDown') return false;
+
+  const key = input.key.toLowerCase();
+  return key === 'f5' || ((input.meta || input.control) && key === 'r');
+}
+
+function isDeveloperToolsShortcut(input: Input): boolean {
+  if (input.type !== 'keyDown') return false;
+
+  const key = input.key.toLowerCase();
+  const modifiedDeveloperShortcut = (input.meta || input.control)
+    && (input.alt || input.shift)
+    && ['c', 'i', 'j'].includes(key);
+
+  return key === 'f12' || modifiedDeveloperShortcut;
+}
+
+function configureApplicationMenu(): void {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: applicationName,
+      submenu: [
+        { role: 'about', label: `About ${applicationName}` },
+        { type: 'separator' },
+        { role: 'quit', label: `Quit ${applicationName}` },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+app.whenReady().then(async () => {
+  configureApplicationMenu();
+
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    app.dock?.setIcon(join(currentDirectory, '../build/icon.png'));
+  }
+
+  startPackagedApi();
+  try {
+    await waitForApi();
+  } catch {
+    dialog.showErrorBox(
+      'Developer Memory could not start',
+      'The local project service did not become available. Close the app and try again.',
+    );
+    app.quit();
+    return;
+  }
+
+  nativeTheme.on('updated', () => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.setBackgroundColor(windowBackground());
+    }
+  });
+
   ipcMain.handle('desktop:select-project-directory', async () => {
     const result = await dialog.showOpenDialog({
       title: 'Select a project folder',
@@ -131,4 +240,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  apiProcess?.kill();
+  apiProcess = null;
 });

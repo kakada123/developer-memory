@@ -1,4 +1,5 @@
 node_modules/
+apps/desktop/release/
 dist/
 dist-electron/
 dist-test/

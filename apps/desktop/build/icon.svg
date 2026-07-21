@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">Developer Memory</title>
+  <defs>
+    <linearGradient id="background" x1="120" y1="80" x2="880" y2="944" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34349A" />
+      <stop offset="0.48" stop-color="#17245A" />
+      <stop offset="1" stop-color="#091229" />
+    </linearGradient>
+    <linearGradient id="backPage" x1="270" y1="300" x2="680" y2="850" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6870E8" />
+      <stop offset="1" stop-color="#2D35A5" />
+    </linearGradient>
+    <linearGradient id="middlePage" x1="330" y1="230" x2="760" y2="830" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7D70F4" />
+      <stop offset="1" stop-color="#4B42D4" />
+    </linearGradient>
+    <linearGradient id="frontPage" x1="380" y1="180" x2="780" y2="790" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A68CFF" />
+      <stop offset="0.48" stop-color="#7768F7" />
+      <stop offset="1" stop-color="#4D52F0" />
+    </linearGradient>
+    <linearGradient id="fold" x1="710" y1="186" x2="837" y2="327" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9CF4FF" />
+      <stop offset="1" stop-color="#4DC8F4" />
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="34" stdDeviation="34" flood-color="#020617" flood-opacity=".58" />
+    </filter>
+    <filter id="pageShadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#111057" flood-opacity=".55" />
+    </filter>
+  </defs>
+
+  <rect x="48" y="48" width="928" height="928" rx="218" fill="url(#background)" filter="url(#shadow)" />
+  <path d="M102 284C178 148 320 82 484 82h284c94 0 170 76 170 170v91C756 253 433 255 102 284Z" fill="#7372FF" opacity=".13" />
+
+  <g filter="url(#pageShadow)">
+    <rect x="230" y="322" width="486" height="540" rx="92" fill="url(#backPage)" stroke="#8790FF" stroke-opacity=".35" stroke-width="8" />
+    <rect x="286" y="258" width="498" height="552" rx="92" fill="url(#middlePage)" stroke="#A098FF" stroke-opacity=".4" stroke-width="8" />
+    <path d="M348 266c0-59 48-107 107-107h249l139 139v360c0 59-48 107-107 107H455c-59 0-107-48-107-107V266Z" fill="url(#frontPage)" stroke="#C4B6FF" stroke-opacity=".74" stroke-width="9" />
+    <path d="M704 159v83c0 31 25 56 56 56h83L704 159Z" fill="url(#fold)" stroke="#C0F8FF" stroke-opacity=".8" stroke-width="7" stroke-linejoin="round" />
+  </g>
+
+  <g fill="none" stroke="#25217F" stroke-linecap="round" stroke-linejoin="round" stroke-width="54">
+    <path d="m514 401-104 92 104 92" />
+    <path d="m674 401 104 92-104 92" />
+  </g>
+  <path d="m625 379-62 232" fill="none" stroke="#E2DDFF" stroke-linecap="round" stroke-width="42" opacity=".96" />
+  <path d="M406 711h290" fill="none" stroke="#B9B0FF" stroke-linecap="round" stroke-width="18" opacity=".42" />
+</svg>

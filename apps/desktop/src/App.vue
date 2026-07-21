@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import HomeView from './views/HomeView.vue';
 import ProjectDetailView from './views/ProjectDetailView.vue';
+import logoUrl from '../build/icon.svg';
 
 const locationHash = ref(window.location.hash);
 const projectId = computed(() => locationHash.value.match(/^#\/projects\/([0-9a-f-]+)$/i)?.[1] ?? null);
@@ -22,7 +23,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncLocation));
   <div class="app-shell">
     <header class="app-header">
       <a class="brand-link" href="#/">
-        <div class="brand-mark">DM</div>
+        <img class="brand-mark" :src="logoUrl" alt="" />
         <div><h1>Developer Memory</h1><p>Your local project knowledge, in one place.</p></div>
       </a>
     </header>
