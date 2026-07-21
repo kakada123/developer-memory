@@ -146,11 +146,9 @@ await writeFile(join(packagedApplication, 'package.json'), JSON.stringify({
   main: 'dist-electron/main.js',
 }, null, 2));
 
-execFileSync('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', applicationPath]);
-
 const quotedApplicationPath = quoteShellArgument(applicationPath);
 
-console.log(`Created ${applicationPath}`);
+console.log(`Created unsigned local build at ${applicationPath}`);
 console.log('\nIf macOS blocks this trusted local build, run:');
 console.log(`  xattr -dr com.apple.quarantine ${quotedApplicationPath}`);
 console.log(`  open ${quotedApplicationPath}`);
