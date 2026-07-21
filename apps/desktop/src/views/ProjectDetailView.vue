@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useIndexingStore } from '../stores/indexing';
 import GitHistoryTab from '../components/GitHistoryTab.vue';
 import SessionsTab from '../components/SessionsTab.vue';
@@ -7,7 +7,15 @@ import MemoriesTab from '../components/MemoriesTab.vue';
 
 const props = defineProps<{ projectId: string }>();
 const store = useIndexingStore();
-const activeTab = ref<'overview'|'files'|'git'|'sessions'|'memories'>('overview');
+type ProjectTab = 'overview'|'files'|'git'|'sessions'|'memories';
+const tabStorageKey = `developer-memory:project-tab:${props.projectId}`;
+const storedTab = sessionStorage.getItem(tabStorageKey);
+const validTabs: ProjectTab[] = ['overview', 'files', 'git', 'sessions', 'memories'];
+const activeTab = ref<ProjectTab>(validTabs.includes(storedTab as ProjectTab) ? storedTab as ProjectTab : 'overview');
+const openingProject = ref(false);
+const openProjectError = ref<string | null>(null);
+
+watch(activeTab, (tab) => sessionStorage.setItem(tabStorageKey, tab));
 
 function formatDate(value: string | null): string {
   return value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'Never';
@@ -25,6 +33,25 @@ async function clearIndex(): Promise<void> {
   }
 }
 
+async function openProjectInEditor(): Promise<void> {
+  openingProject.value = true;
+  openProjectError.value = null;
+
+  try {
+    const result = await window.desktop.openProjectFile(props.projectId, '.');
+    if (!result.opened) {
+      openProjectError.value = result.error ?? 'The project could not be opened in VS Code.';
+    }
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : '';
+    openProjectError.value = message.includes('No handler registered')
+      ? 'The desktop process is out of date. Quit Developer Memory and restart npm run dev once.'
+      : 'The project could not be opened in VS Code. Make sure VS Code is installed.';
+  } finally {
+    openingProject.value = false;
+  }
+}
+
 onMounted(() => store.load(props.projectId));
 onBeforeUnmount(() => store.reset());
 </script>
@@ -33,6 +60,7 @@ onBeforeUnmount(() => store.reset());
   <main class="detail-page">
     <a class="back-link" href="#/">← All projects</a>
     <div v-if="store.error" class="alert error-alert">{{ store.error }}</div>
+    <div v-if="openProjectError" class="alert error-alert">{{ openProjectError }}</div>
     <div v-if="store.loading" class="status-panel"><div class="spinner"></div><h2>Loading project…</h2></div>
 
     <template v-else-if="store.project">
@@ -42,15 +70,25 @@ onBeforeUnmount(() => store.reset());
           <h2>{{ store.project.name }}</h2>
           <p class="hero-path">{{ store.project.path }}</p>
         </div>
-        <div v-if="activeTab === 'files'" class="hero-actions">
+        <div class="hero-actions">
           <button
+            type="button"
+            class="button secondary"
+            :disabled="openingProject"
+            @click="openProjectInEditor"
+          >
+            {{ openingProject ? 'Opening…' : 'Open in VS Code ↗' }}
+          </button>
+          <button
+            v-if="activeTab === 'files'"
+            type="button"
             class="button primary"
             :disabled="store.isIndexing"
             @click="store.start(projectId)"
           >
             {{ store.isIndexing ? 'Indexing…' : store.project.indexStatus === 'NOT_INDEXED' ? 'Index Project' : 'Re-index' }}
           </button>
-          <button v-if="store.project.indexStatus !== 'NOT_INDEXED'" class="button danger" :disabled="store.isIndexing" @click="clearIndex">Clear Index</button>
+          <button v-if="activeTab === 'files' && store.project.indexStatus !== 'NOT_INDEXED'" type="button" class="button danger" :disabled="store.isIndexing" @click="clearIndex">Clear Index</button>
         </div>
       </section>
 

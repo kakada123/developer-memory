@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useGitStore } from '../stores/git';
+import { apiClient } from '../services/api-client';
 
 const props = defineProps<{ projectId: string }>();
 const store = useGitStore();
@@ -8,6 +9,11 @@ const search = ref('');
 const openFileError = ref<string | null>(null);
 const openingFile = ref<string | null>(null);
 const selectedBranch = ref('');
+const availableBranches = computed(() => store.branches ?? []);
+const refreshingBranches = ref(false);
+const switchingBranch = ref(false);
+const branchActionError = ref<string | null>(null);
+const branchMessage = ref<string | null>(null);
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleString();
@@ -31,7 +37,40 @@ async function switchBranch(): Promise<void> {
   const confirmed = window.confirm(
     `Switch this project to “${selectedBranch.value}”?\n\nThis changes the files in the working directory. The operation will be blocked if there are uncommitted changes.`,
   );
-  if (confirmed) await store.switchBranch(props.projectId, selectedBranch.value);
+  if (!confirmed) return;
+
+  switchingBranch.value = true;
+  branchActionError.value = null;
+  branchMessage.value = null;
+  try {
+    const result = await apiClient.switchGitBranch(props.projectId, selectedBranch.value);
+    branchMessage.value = `Switched to ${result.branch}. Sync Git History and re-index Files to refresh stored data.`;
+    await store.load(props.projectId);
+  } catch (caught) {
+    branchActionError.value = caught instanceof Error ? caught.message : 'The branch could not be switched.';
+  } finally {
+    switchingBranch.value = false;
+  }
+}
+
+async function refreshBranches(): Promise<void> {
+  const confirmed = window.confirm(
+    'Fetch the latest branch list from configured Git remotes? This updates remote references but does not change your working files.',
+  );
+  if (!confirmed) return;
+
+  refreshingBranches.value = true;
+  branchActionError.value = null;
+  branchMessage.value = null;
+  try {
+    const result = await apiClient.refreshGitBranches(props.projectId);
+    store.$patch({ branches: result.branches });
+    branchMessage.value = `Loaded ${result.branches.length} branches from the configured remotes.`;
+  } catch (caught) {
+    branchActionError.value = caught instanceof Error ? caught.message : 'Remote branches could not be refreshed.';
+  } finally {
+    refreshingBranches.value = false;
+  }
 }
 
 watch(() => store.project?.gitCurrentBranch, (branch) => {
@@ -51,18 +90,36 @@ onBeforeUnmount(() => store.stop());
       </div>
       <div class="git-actions">
         <select v-model="selectedBranch" class="branch-select" aria-label="Local Git branch">
-          <option v-for="branch in store.branches" :key="branch" :value="branch">{{ branch }}</option>
+          <option v-if="store.project && !store.project.hasGit" value="">Git not detected</option>
+          <option
+            v-if="store.project?.hasGit && store.project.gitCurrentBranch && !availableBranches.includes(store.project.gitCurrentBranch)"
+            :value="store.project.gitCurrentBranch"
+          >
+            {{ store.project.gitCurrentBranch }}
+          </option>
+          <option v-if="store.project?.hasGit && store.loadingBranches && !store.project?.gitCurrentBranch" value="">Loading branches…</option>
+          <option v-else-if="store.project?.hasGit && availableBranches.length === 0 && !store.project?.gitCurrentBranch" value="">No branches found</option>
+          <option v-for="branch in availableBranches" :key="branch" :value="branch">{{ branch }}</option>
         </select>
+        <span v-if="store.loadingBranches" class="branch-loading">Loading branches…</span>
         <button
           class="button secondary"
-          :disabled="store.switchingBranch || !selectedBranch || selectedBranch === store.project?.gitCurrentBranch || store.project?.gitSyncStatus === 'SYNCING'"
+          :disabled="!store.project?.hasGit || refreshingBranches || switchingBranch || store.project?.gitSyncStatus === 'SYNCING'"
+          title="Fetch all branch references from configured remotes"
+          @click="refreshBranches()"
+        >
+          {{ refreshingBranches ? 'Refreshing…' : 'Refresh Branches' }}
+        </button>
+        <button
+          class="button secondary"
+          :disabled="!store.project?.hasGit || switchingBranch || !selectedBranch || selectedBranch === store.project?.gitCurrentBranch || store.project?.gitSyncStatus === 'SYNCING'"
           @click="switchBranch"
         >
-          {{ store.switchingBranch ? 'Switching…' : 'Switch Branch' }}
+          {{ switchingBranch ? 'Switching…' : 'Switch Branch' }}
         </button>
         <button
           class="button primary"
-          :disabled="store.project?.gitSyncStatus === 'SYNCING' || store.switchingBranch"
+          :disabled="!store.project?.hasGit || store.project?.gitSyncStatus === 'SYNCING' || switchingBranch"
           @click="store.sync(projectId)"
         >
           {{ store.project?.gitSyncStatus === 'SYNCING' ? 'Syncing…' : 'Sync Git History' }}
@@ -70,10 +127,21 @@ onBeforeUnmount(() => store.stop());
       </div>
     </div>
 
+    <div v-if="store.project && !store.project.hasGit" class="git-unavailable">
+      <strong>Git repository not detected</strong>
+      <p>This registered folder does not contain a <code>.git</code> directory. Register the repository root folder to sync history or switch branches.</p>
+    </div>
+
     <div v-if="store.error || store.project?.gitSyncError" class="alert error-alert">
       {{ store.error || store.project?.gitSyncError }}
     </div>
     <div v-if="store.success" class="alert success-alert">{{ store.success }}</div>
+    <div v-if="branchMessage" class="alert success-alert">{{ branchMessage }}</div>
+    <div v-if="branchActionError" class="alert error-alert">{{ branchActionError }}</div>
+    <div v-if="store.branchError" class="alert warning-alert">
+      <span>{{ store.branchError }}</span>
+      <button @click="refreshBranches()">Retry branches</button>
+    </div>
 
     <div v-if="store.project" class="metadata-grid">
       <div><span>Branch</span><strong>{{ store.project.gitCurrentBranch || 'Unknown' }}</strong></div>

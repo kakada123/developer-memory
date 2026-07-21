@@ -12,29 +12,58 @@ interface RegisteredProjectResponse {
   path?: unknown;
 }
 
+interface OpenInEditorResult {
+  opened: boolean;
+  error?: string;
+}
+
 function isInside(root: string, candidate: string): boolean {
   const pathFromRoot = relative(root, candidate);
   return pathFromRoot === ''
     || (!pathFromRoot.startsWith(`..${sep}`) && pathFromRoot !== '..' && !isAbsolute(pathFromRoot));
 }
 
-async function openProjectFile(projectId: unknown, relativePath: unknown, line: unknown) {
+async function resolveRegisteredProjectRoot(projectId: unknown): Promise<string | null> {
   if (typeof projectId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(projectId)) {
-    return { opened: false, error: 'The project identifier is invalid.' };
+    return null;
   }
+
+  const response = await fetch(`http://127.0.0.1:47821/projects/${encodeURIComponent(projectId)}`);
+  if (!response.ok) return null;
+
+  const project = await response.json() as RegisteredProjectResponse;
+  if (typeof project.path !== 'string') return null;
+
+  const root = await realpath(project.path);
+  return (await stat(root)).isDirectory() ? root : null;
+}
+
+async function openProjectFile(projectId: unknown, relativePath: unknown, line: unknown): Promise<OpenInEditorResult> {
   if (typeof relativePath !== 'string' || !relativePath || isAbsolute(relativePath)) {
     return { opened: false, error: 'The file path is invalid.' };
   }
 
   try {
-    const response = await fetch(`http://127.0.0.1:47821/projects/${encodeURIComponent(projectId)}`);
-    if (!response.ok) return { opened: false, error: 'The registered project could not be found.' };
-    const project = await response.json() as RegisteredProjectResponse;
-    if (typeof project.path !== 'string') return { opened: false, error: 'The registered project path is invalid.' };
+    const root = await resolveRegisteredProjectRoot(projectId);
+    if (!root) return { opened: false, error: 'The registered project could not be found.' };
 
-    const root = await realpath(project.path);
     const candidate = await realpath(resolve(root, relativePath));
-    if (!isInside(root, candidate) || !(await stat(candidate)).isFile()) {
+    const candidateStat = await stat(candidate);
+    if (!isInside(root, candidate)) {
+      return { opened: false, error: 'The selected file is no longer available in this project.' };
+    }
+
+    if (relativePath === '.') {
+      if (!candidateStat.isDirectory()) {
+        return { opened: false, error: 'The registered project folder is no longer available.' };
+      }
+
+      const vscodeUrl = pathToFileURL(candidate).href.replace(/^file:\/\//, 'vscode://file');
+      await shell.openExternal(vscodeUrl);
+      return { opened: true };
+    }
+
+    if (!candidateStat.isFile()) {
       return { opened: false, error: 'The selected file is no longer available in this project.' };
     }
 

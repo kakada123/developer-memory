@@ -3,6 +3,9 @@ import vue from '@vitejs/plugin-vue';
 import electron from 'vite-plugin-electron/simple';
 
 export default defineConfig({
+  resolve: {
+    extensions: ['.mjs', '.mts', '.ts', '.js', '.jsx', '.tsx', '.json', '.vue'],
+  },
   plugins: [
     vue(),
     electron({
