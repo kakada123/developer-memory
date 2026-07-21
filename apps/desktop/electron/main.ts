@@ -8,11 +8,15 @@ import { detectProject } from './project-detection';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const applicationName = 'Developer Memory';
+const temporaryDeveloperMode = true;
+const apiPort = app.isPackaged ? 47823 : 47821;
+const apiHealthUrl = `http://127.0.0.1:${apiPort}/health`;
 const selectedDirectories = new Set<string>();
 const windowBackground = (): string => nativeTheme.shouldUseDarkColors ? '#11131a' : '#f6f7fb';
 let apiProcess: UtilityProcess | null = null;
 
 app.setName(applicationName);
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
 interface RegisteredProjectResponse {
   path?: unknown;
@@ -85,32 +89,53 @@ async function openProjectFile(projectId: unknown, relativePath: unknown, line: 
 function startPackagedApi(): void {
   if (!app.isPackaged || apiProcess) return;
 
-  const applicationPath = app.getAppPath();
-  apiProcess = utilityProcess.fork(join(applicationPath, 'api', 'dist', 'main.js'), [], {
-    cwd: join(applicationPath, 'api'),
+  const apiDirectory = join(process.resourcesPath, 'api');
+  apiProcess = utilityProcess.fork(join(apiDirectory, 'dist', 'main.js'), [], {
+    cwd: apiDirectory,
     env: {
       ...process.env,
       DEVELOPER_MEMORY_PACKAGED: 'true',
+      DEVELOPER_MEMORY_API_PORT: String(apiPort),
+      DEVELOPER_MEMORY_DEBUG: String(temporaryDeveloperMode),
     },
+    stdio: 'pipe',
     serviceName: 'Developer Memory API',
   });
+  apiProcess.stdout?.on('data', (chunk: Buffer) => console.log(`[API] ${chunk.toString().trimEnd()}`));
+  apiProcess.stderr?.on('data', (chunk: Buffer) => console.error(`[API] ${chunk.toString().trimEnd()}`));
+  apiProcess.once('exit', () => {
+    apiProcess = null;
+  });
+}
+
+async function isApiReady(): Promise<boolean> {
+  try {
+    const response = await fetch(apiHealthUrl, { signal: AbortSignal.timeout(1_000) });
+    if (!response.ok) return false;
+
+    const health = await response.json() as { status?: unknown };
+    return health.status === 'ok';
+  } catch {
+    return false;
+  }
 }
 
 async function waitForApi(timeoutMs = 15_000): Promise<void> {
   const startedAt = Date.now();
 
   while (Date.now() - startedAt < timeoutMs) {
-    try {
-      const response = await fetch('http://127.0.0.1:47821/health');
-      if (response.ok) return;
-    } catch {
-      // The local API may need a moment to initialize its database.
-    }
+    if (await isApiReady()) return;
 
+    // The local API may need a moment to initialize its database.
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 150));
   }
 
   throw new Error('The local Developer Memory service did not start in time.');
+}
+
+async function ensureApiReady(): Promise<void> {
+  if (!(await isApiReady())) startPackagedApi();
+  await waitForApi();
 }
 
 function createWindow(): void {
@@ -125,19 +150,22 @@ function createWindow(): void {
     webPreferences: {
       preload: join(currentDirectory, 'preload.mjs'),
       contextIsolation: true,
-      devTools: !app.isPackaged,
+      devTools: temporaryDeveloperMode || !app.isPackaged,
       nodeIntegration: false,
       sandbox: true,
     },
   });
 
   window.webContents.on('before-input-event', (event, input) => {
-    if (isReloadShortcut(input) || (app.isPackaged && isDeveloperToolsShortcut(input))) {
+    if (isReloadShortcut(input) || (!temporaryDeveloperMode && app.isPackaged && isDeveloperToolsShortcut(input))) {
       event.preventDefault();
     }
   });
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  if (temporaryDeveloperMode) {
+    window.webContents.once('did-finish-load', () => window.webContents.openDevTools({ mode: 'detach' }));
+  }
 
   if (process.env.VITE_DEV_SERVER_URL) {
     void window.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -184,59 +212,71 @@ function configureApplicationMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-app.whenReady().then(async () => {
-  configureApplicationMenu();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const window = BrowserWindow.getAllWindows()[0];
+    if (!window) return;
 
-  if (process.platform === 'darwin' && !app.isPackaged) {
-    app.dock?.setIcon(join(currentDirectory, '../build/icon.png'));
-  }
-
-  startPackagedApi();
-  try {
-    await waitForApi();
-  } catch {
-    dialog.showErrorBox(
-      'Developer Memory could not start',
-      'The local project service did not become available. Close the app and try again.',
-    );
-    app.quit();
-    return;
-  }
-
-  nativeTheme.on('updated', () => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      window.setBackgroundColor(windowBackground());
-    }
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
   });
 
-  ipcMain.handle('desktop:select-project-directory', async () => {
-    const result = await dialog.showOpenDialog({
-      title: 'Select a project folder',
-      properties: ['openDirectory'],
+  void app.whenReady().then(async () => {
+    configureApplicationMenu();
+
+    if (process.platform === 'darwin' && !app.isPackaged) {
+      app.dock?.setIcon(join(currentDirectory, '../build/icon.png'));
+    }
+
+    try {
+      await ensureApiReady();
+    } catch {
+      dialog.showErrorBox(
+        'Developer Memory could not start',
+        'The local project service did not become available. Close the app and try again.',
+      );
+      app.quit();
+      return;
+    }
+
+    nativeTheme.on('updated', () => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.setBackgroundColor(windowBackground());
+      }
     });
-    const path = result.filePaths[0];
-    if (result.canceled || !path) return { canceled: true };
 
-    selectedDirectories.add(path);
-    return { canceled: false, path };
+    ipcMain.handle('desktop:select-project-directory', async () => {
+      const result = await dialog.showOpenDialog({
+        title: 'Select a project folder',
+        properties: ['openDirectory'],
+      });
+      const path = result.filePaths[0];
+      if (result.canceled || !path) return { canceled: true };
+
+      selectedDirectories.add(path);
+      return { canceled: false, path };
+    });
+
+    ipcMain.handle('desktop:detect-project', async (_event, path: unknown) => {
+      if (typeof path !== 'string' || !selectedDirectories.has(path)) {
+        throw new Error('Project detection is limited to a directory selected with the native picker');
+      }
+      selectedDirectories.delete(path);
+      return detectProject(path);
+    });
+
+    ipcMain.handle('desktop:open-project-file', (_event, projectId: unknown, relativePath: unknown, line: unknown) =>
+      openProjectFile(projectId, relativePath, line));
+
+    createWindow();
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
   });
-
-  ipcMain.handle('desktop:detect-project', async (_event, path: unknown) => {
-    if (typeof path !== 'string' || !selectedDirectories.has(path)) {
-      throw new Error('Project detection is limited to a directory selected with the native picker');
-    }
-    selectedDirectories.delete(path);
-    return detectProject(path);
-  });
-
-  ipcMain.handle('desktop:open-project-file', (_event, projectId: unknown, relativePath: unknown, line: unknown) =>
-    openProjectFile(projectId, relativePath, line));
-
-  createWindow();
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

@@ -3,7 +3,11 @@ import type {
   GitCommit, GitCommitFile, DevelopmentSession, MemoryEntry,
 } from '@developer-memory/shared-types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:47821';
+const defaultApiPort = window.location.protocol === 'file:' ? 47823 : 47821;
+const configuredApiBaseUrl = window.location.protocol === 'file:'
+  ? undefined
+  : import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = configuredApiBaseUrl ?? `http://127.0.0.1:${defaultApiPort}`;
 
 interface ApiErrorPayload {
   message?: string | string[];

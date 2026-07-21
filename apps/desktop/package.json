@@ -1,13 +1,19 @@
 {
   "name": "@developer-memory/desktop",
+  "productName": "Developer Memory",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.js",
+  "config": {
+    "forge": "./forge.config.cjs"
+  },
   "scripts": {
     "dev": "wait-on http-get://127.0.0.1:47821/health && vite",
     "build": "vue-tsc -b && vite build",
-    "package:mac": "node scripts/package-macos.mjs",
+    "prepare:forge": "node scripts/prepare-forge-runtime.mjs",
+    "package:app": "npm run prepare:forge && electron-forge package",
+    "package:mac": "npm run prepare:forge && electron-forge make --platform=darwin",
     "generate:icons": "node scripts/render-icon.mjs",
     "typecheck": "vue-tsc -b --noEmit"
   },
@@ -17,6 +23,8 @@
     "vue": "^3.5.21"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-base": "^7.11.2",
     "@types/node": "^24.3.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "electron": "^37.3.1",

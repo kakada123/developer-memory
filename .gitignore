@@ -1,5 +1,8 @@
 node_modules/
+.forge-tmp/
+apps/desktop/.forge-cache/
 apps/desktop/release/
+apps/desktop/.forge-runtime/
 dist/
 dist-electron/
 dist-test/
